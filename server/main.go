@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"net"
 )
-
 
 type Server struct {
 	listenAddr string
@@ -17,7 +17,6 @@ func NewServer(listenAddr string) *Server {
 	}
 }
 
-// Basic Server start
 func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", s.listenAddr)
 	if err != nil {
@@ -33,10 +32,23 @@ func (s *Server) Start() error {
 			log.Printf("Accept error: %s\n", err)
 			continue
 		}
-		
+
 		log.Printf("New connection accepted from %s\n", conn.RemoteAddr())
-		// CLose now because there is no client logic
-		conn.Close()
+		go s.handleClient(conn)
+	}
+}
+
+func (s *Server) handleClient(conn net.Conn) {
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
+
+	for {
+		message, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("Client disconnected: %s\n", conn.RemoteAddr())
+			break
+		}
+		log.Printf("Received: %s", message)
 	}
 }
 
