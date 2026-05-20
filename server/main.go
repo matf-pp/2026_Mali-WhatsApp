@@ -6,6 +6,11 @@ import (
 	"net"
 )
 
+type Client struct {
+	ID   string
+	Conn net.Conn
+}
+
 type Server struct {
 	listenAddr string
 	ln         net.Listener
@@ -55,14 +60,30 @@ func (s *Server) handleClient(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
+	username, err := reader.ReadString('\n')
+	if err != nil {
+		log.Printf("Failed to read username: %s\n", err)
+		return
+	}
+
+	username = string(username[:len(username)-1])
+	if len(username) > 0 && username[len(username)-1] == '\r' {
+		username = username[:len(username)-1]
+	}
+
+	client := &Client{
+		ID:   username,
+		Conn: conn,
+	}
+	_ = client // Just for now, beacause of compiler rules
+
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("Client disconnected: %s\n", conn.RemoteAddr())
+			log.Printf("Client '%s' disconnected\n", username)
 			break
 		}
-		log.Printf("Received: %s", message)
-
+		log.Printf("Received from '%s': %s", username, message)
 	}
 }
 
