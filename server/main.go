@@ -9,11 +9,13 @@ import (
 type Server struct {
 	listenAddr string
 	ln         net.Listener
+	quitch     chan struct{} 
 }
 
 func NewServer(listenAddr string) *Server {
 	return &Server{
 		listenAddr: listenAddr,
+		quitch:     make(chan struct{}),
 	}
 }
 
@@ -22,10 +24,18 @@ func (s *Server) Start() error {
 	if err != nil {
 		return err
 	}
+	defer ln.Close()
 	s.ln = ln
 
 	log.Printf("Server started on %s\n", s.listenAddr)
 
+	go s.acceptLoop()
+
+	<-s.quitch
+	return nil
+}
+
+func (s *Server) acceptLoop() {
 	for {
 		conn, err := s.ln.Accept()
 		if err != nil {
@@ -34,9 +44,12 @@ func (s *Server) Start() error {
 		}
 
 		log.Printf("New connection accepted from %s\n", conn.RemoteAddr())
+		
+		// Handle each client in a separate goroutine
 		go s.handleClient(conn)
 	}
 }
+
 
 func (s *Server) handleClient(conn net.Conn) {
 	defer conn.Close()
@@ -49,6 +62,7 @@ func (s *Server) handleClient(conn net.Conn) {
 			break
 		}
 		log.Printf("Received: %s", message)
+
 	}
 }
 
