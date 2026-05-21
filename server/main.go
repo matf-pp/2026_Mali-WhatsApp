@@ -2,9 +2,10 @@ package main
 
 import (
 	"bufio"
+	"fmt" 
 	"log"
 	"net"
-	"sync" 
+	"sync"
 )
 
 type Client struct {
@@ -15,9 +16,9 @@ type Client struct {
 type Server struct {
 	listenAddr string
 	ln         net.Listener
-	quitch     chan struct{} 
-	clients    map[string]*Client 
-    mu         sync.Mutex 
+	quitch     chan struct{}
+	clients    map[string]*Client
+	mu         sync.Mutex
 }
 
 func NewServer(listenAddr string) *Server {
@@ -53,17 +54,16 @@ func (s *Server) acceptLoop() {
 		}
 
 		log.Printf("New connection accepted from %s\n", conn.RemoteAddr())
-		
+
 		// Handle each client in a separate goroutine
 		go s.handleClient(conn)
 	}
 }
 
-
 func (s *Server) handleClient(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
-
+	
 	username, err := reader.ReadString('\n')
 	if err != nil {
 		log.Printf("Failed to read username: %s\n", err)
@@ -80,9 +80,10 @@ func (s *Server) handleClient(conn net.Conn) {
 		Conn: conn,
 	}
 
-	s.registerClient(client) 
-    defer s.deregisterClient(username) 
-	log.Printf("Client '%s' connected from %s\n", username, conn.RemoteAddr()) 
+	s.registerClient(client)
+	defer s.deregisterClient(username)
+
+	log.Printf("Client '%s' connected from %s\n", username, conn.RemoteAddr())
 
 	for {
 		message, err := reader.ReadString('\n')
@@ -90,21 +91,38 @@ func (s *Server) handleClient(conn net.Conn) {
 			log.Printf("Client '%s' disconnected\n", username)
 			break
 		}
-		log.Printf("Received from '%s': %s", username, message)
+
+		s.broadcastMessage(username, message)
 	}
 }
 
 func (s *Server) registerClient(c *Client) {
-    s.mu.Lock()
-    defer s.mu.Unlock()
-    s.clients[c.ID] = c
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.clients[c.ID] = c
 }
 
 func (s *Server) deregisterClient(id string) {
-    s.mu.Lock()
-    defer s.mu.Unlock()
-    delete(s.clients, id)
-    log.Printf("Client '%s' removed from registry\n", id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.clients, id)
+	log.Printf("Client '%s' removed from registry\n", id)
+}
+
+func (s *Server) broadcastMessage(senderID string, msg string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	formattedMsg := fmt.Sprintf("[%s]: %s", senderID, msg)
+
+	for id, client := range s.clients {
+		if id != senderID {
+			_, err := client.Conn.Write([]byte(formattedMsg))
+			if err != nil {
+				log.Printf("Failed to send message to %s: %s\n", id, err)
+			}
+		}
+	}
 }
 
 func main() {
