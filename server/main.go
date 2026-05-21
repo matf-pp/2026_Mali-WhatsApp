@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"net"
+	"sync" 
 )
 
 type Client struct {
@@ -15,12 +16,15 @@ type Server struct {
 	listenAddr string
 	ln         net.Listener
 	quitch     chan struct{} 
+	clients    map[string]*Client 
+    mu         sync.Mutex 
 }
 
 func NewServer(listenAddr string) *Server {
 	return &Server{
 		listenAddr: listenAddr,
 		quitch:     make(chan struct{}),
+		clients:    make(map[string]*Client),
 	}
 }
 
@@ -75,7 +79,10 @@ func (s *Server) handleClient(conn net.Conn) {
 		ID:   username,
 		Conn: conn,
 	}
-	_ = client // Just for now, beacause of compiler rules
+
+	s.registerClient(client) 
+    defer s.deregisterClient(username) 
+	log.Printf("Client '%s' connected from %s\n", username, conn.RemoteAddr()) 
 
 	for {
 		message, err := reader.ReadString('\n')
@@ -85,6 +92,19 @@ func (s *Server) handleClient(conn net.Conn) {
 		}
 		log.Printf("Received from '%s': %s", username, message)
 	}
+}
+
+func (s *Server) registerClient(c *Client) {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    s.clients[c.ID] = c
+}
+
+func (s *Server) deregisterClient(id string) {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    delete(s.clients, id)
+    log.Printf("Client '%s' removed from registry\n", id)
 }
 
 func main() {
