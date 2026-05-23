@@ -15,6 +15,7 @@ import (
 
 type Client struct {
 	ID   string
+	UserID int 
 	Conn net.Conn
 }
 
@@ -87,8 +88,24 @@ func (s *Server) handleClient(conn net.Conn) {
 	}
 	password = strings.TrimSpace(password)
 
+	var userID int
+    err = s.db.QueryRow(
+        "SELECT id FROM users WHERE username = ? AND password = ?",
+        username, password,
+    ).Scan(&userID)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Printf("Permission denied for '%s': wrong username or password.\n", username)
+            conn.Write([]byte("Error: wrong username or password.\n"))
+            return
+        }
+        log.Printf("DB error during registration: %s\n", err)
+        return
+    }
+
 	client := &Client{
 		ID:   username,
+		UserID: userID,
 		Conn: conn,
 	}
 
