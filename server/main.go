@@ -5,6 +5,7 @@ import (
 	"fmt" 
 	"log"
 	"net"
+	"strings" 
 	"sync"
 )
 
@@ -64,16 +65,21 @@ func (s *Server) handleClient(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	
+	conn.Write([]byte("Username: "))
 	username, err := reader.ReadString('\n')
 	if err != nil {
 		log.Printf("Failed to read username: %s\n", err)
 		return
 	}
-
-	username = string(username[:len(username)-1])
-	if len(username) > 0 && username[len(username)-1] == '\r' {
-		username = username[:len(username)-1]
+	username = strings.TrimSpace(username) 
+ 
+	conn.Write([]byte("Password: ")) 
+	password, err := reader.ReadString('\n') 
+	if err != nil {
+		log.Printf("Failed to read password %s\n", err)
+		return
 	}
+	password = strings.TrimSpace(password)
 
 	client := &Client{
 		ID:   username,
