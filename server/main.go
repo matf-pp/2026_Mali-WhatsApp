@@ -131,10 +131,56 @@ func (s *Server) handleClient(conn net.Conn) {
 			continue
 		}
 
-		s.saveBroadcastMessage(client, message)
-
-		s.broadcastMessage(username, message)
+		if strings.HasPrefix(message, "@") {
+			parts := strings.SplitN(message[1:], " ", 2)
+			if len(parts) < 2 || parts[1] == "" {
+				conn.Write([]byte("Format: @user msg\n"))
+				continue
+			}
+			if err := s.sendDirectMessage(client, parts[0], parts[1]); err != nil {
+				conn.Write([]byte(fmt.Sprintf("Error: %s\n", err)))
+			}
+		} else {
+			s.saveBroadcastMessage(client, message)
+			s.broadcastMessage(username, message)
+		}
 	}
+}
+
+func (s *Server) sendDirectMessage(sender *Client, recipientName string, text string) error {
+	var recipientID int
+	err := s.db.QueryRow("SELECT id FROM users WHERE username = ?", recipientName).Scan(&recipientID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("User '%s' does not exist", recipientName)
+		}
+		return fmt.Errorf("DB error: %s", err)
+	}
+ 
+	_, err = s.db.Exec(
+		"INSERT INTO chat (idSender, idReceiver, messageText, time) VALUES (?, ?, ?, ?)",
+		sender.UserID, recipientID, text, time.Now().Format("2006-01-02 15:04:05"),
+	)
+	if err != nil {
+		return fmt.Errorf("Error during message saving: %s", err)
+	}
+ 
+	s.mu.Lock()
+	recipient, online := s.clients[recipientName]
+	s.mu.Unlock()
+ 
+	if online {
+		recipient.Conn.Write([]byte(fmt.Sprintf("[DM from %s]: %s\n", sender.ID, text)))
+	}
+ 
+	status := "delivered"
+	if !online {
+		status = "sent (user offline)"
+	}
+	sender.Conn.Write([]byte(fmt.Sprintf("[You -> %s] (%s): %s\n", recipientName, status, text)))
+ 
+	log.Printf("DM: %s -> %s: %s\n", sender.ID, recipientName, text)
+	return nil
 }
 
 func (s *Server) saveBroadcastMessage(sender *Client, msg string) {
