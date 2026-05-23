@@ -2,11 +2,15 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt" 
 	"log"
 	"net"
 	"strings" 
 	"sync"
+
+	_ "modernc.org/sqlite"
+
 )
 
 type Client struct {
@@ -20,13 +24,15 @@ type Server struct {
 	quitch     chan struct{}
 	clients    map[string]*Client
 	mu         sync.Mutex
+	db         *sql.DB 
 }
 
-func NewServer(listenAddr string) *Server {
+func NewServer(listenAddr string, db *sql.DB) *Server {
 	return &Server{
 		listenAddr: listenAddr,
 		quitch:     make(chan struct{}),
 		clients:    make(map[string]*Client),
+		db:			db,
 	}
 }
 
@@ -71,7 +77,7 @@ func (s *Server) handleClient(conn net.Conn) {
 		log.Printf("Failed to read username: %s\n", err)
 		return
 	}
-	username = strings.TrimSpace(username) 
+	username = strings.TrimSpace(username)
  
 	conn.Write([]byte("Password: ")) 
 	password, err := reader.ReadString('\n') 
@@ -132,6 +138,16 @@ func (s *Server) broadcastMessage(senderID string, msg string) {
 }
 
 func main() {
-	server := NewServer(":8080")
+	db, err := sql.Open("sqlite", "./chat.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+ 
+	if _, err = db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		log.Fatal(err)
+	}
+	
+	server := NewServer(":8080", db)
 	log.Fatal(server.Start())
 }
