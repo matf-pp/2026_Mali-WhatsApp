@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings" 
 	"sync"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -120,8 +121,24 @@ func (s *Server) handleClient(conn net.Conn) {
 			log.Printf("Client '%s' disconnected\n", username)
 			break
 		}
+		message = strings.TrimSpace(message)
+		if message == "" {
+			continue
+		}
+
+		s.saveBroadcastMessage(client, message)
 
 		s.broadcastMessage(username, message)
+	}
+}
+
+func (s *Server) saveBroadcastMessage(sender *Client, msg string) {
+	_, err := s.db.Exec(
+		"INSERT INTO chat (idSender, idReceiver, messageText, time) VALUES (?, NULL, ?, ?)",
+		sender.UserID, msg, time.Now().Format("2006-01-02 15:04:05"),
+	)
+	if err != nil {
+		log.Printf("Error saving broadcast message: %s\n", err)
 	}
 }
 
