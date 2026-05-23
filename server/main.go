@@ -111,14 +111,19 @@ func (s *Server) handleClient(conn net.Conn) {
 	}
 
 	s.registerClient(client)
-	defer s.deregisterClient(username)
+	defer func() {
+        s.deregisterClient(username)
+        log.Printf("User '%s' logged out.\n", username)
+        s.broadcastSystem(fmt.Sprintf("*** %s has left the chat ***\n", username))
+    }()
 
-	log.Printf("Client '%s' connected from %s\n", username, conn.RemoteAddr())
+	log.Printf("User '%s' (ID: %d) has connected.\n", username, userID)
+    conn.Write([]byte(fmt.Sprintf("Welcome, %s! Format: @receiver msg | broadcast: msg\n", username)))
+    s.broadcastSystem(fmt.Sprintf("*** %s has joined the chat ***\n", username))
 
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("Client '%s' disconnected\n", username)
 			break
 		}
 		message = strings.TrimSpace(message)
@@ -142,6 +147,14 @@ func (s *Server) saveBroadcastMessage(sender *Client, msg string) {
 	}
 }
 
+func (s *Server) broadcastSystem(msg string) {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    for _, client := range s.clients {
+        client.Conn.Write([]byte(msg))
+    }
+}
+
 func (s *Server) registerClient(c *Client) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -152,14 +165,13 @@ func (s *Server) deregisterClient(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.clients, id)
-	log.Printf("Client '%s' removed from registry\n", id)
 }
 
 func (s *Server) broadcastMessage(senderID string, msg string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	formattedMsg := fmt.Sprintf("[%s]: %s", senderID, msg)
+	formattedMsg := fmt.Sprintf("[%s]: %s\n", senderID, msg)
 
 	for id, client := range s.clients {
 		if id != senderID {
