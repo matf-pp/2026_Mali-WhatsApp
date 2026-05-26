@@ -1,0 +1,10 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "mini-whatsapp",
+  "outputfilename": "mini-whatsapp",
+  "frontend:dir": "frontend/src",
+  "author": {
+    "name": "Luka",
+    "email": ""
+  }
+}

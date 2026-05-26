@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <title>Mini WhatsApp - Minimal</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+    <div id="login-container">
+        <h2>Prijava</h2>
+        <input type="text" id="username" placeholder="Korisničko ime">
+        <input type="password" id="password" placeholder="Lozinka">
+        <input type="text" id="server-addr" value="127.0.0.1:8080">
+        <button onclick="izvrsiPrijavu()">Uloguj se</button>
+    </div>
+
+    <div id="chat-container" style="display: none;">
+        <h3 id="chat-title">Čet soba</h3>
+        
+        <div id="chat-messages"></div>
+        
+        <div id="chat-controls">
+            <input type="text" id="message-input" placeholder="Ukucaj poruku...">
+            <button onclick="posaljiPoruku()">Pošalji</button>
+        </div>
+    </div>
+
+    <script src="./main.js" type="module"></script>
+</body>
+</html>
