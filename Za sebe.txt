@@ -1,0 +1,3 @@
+U client-u wails dev
+
+app.go 10-linija "client/crypto", 11-linija ono sto je sad 10.
