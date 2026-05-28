@@ -1,8 +1,11 @@
 module client
 
-go 1.22.0
+go 1.22.2
 
-require github.com/wailsapp/wails/v2 v2.12.0
+require (
+	github.com/wailsapp/wails/v2 v2.12.0
+	mini-whatsapp/crypto v0.0.0-00010101000000-000000000000
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect

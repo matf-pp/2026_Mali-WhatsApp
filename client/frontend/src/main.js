@@ -3,39 +3,41 @@ import { EventsOn } from '../wailsjs/runtime/runtime.js';
 
 let trenutniKorisnik = "";
 
-// Slušamo poruke sa Go backenda
 EventsOn("nova_poruka", (poruka) => {
     prikažiPorukuUEkranu(poruka);
 });
 
 EventsOn("server_status", (status) => {
-    alert("Status mreže: " + status);
+    alert("Status: " + status);
 });
 
-// Funkcija za Login
+//Login dugme
 window.izvrsiPrijavu = async function() {
     const user = document.getElementById("username").value.trim();
     const pass = document.getElementById("password").value.trim();
     const addr = document.getElementById("server-addr").value.trim();
 
     if (!user || !pass || !addr) {
-        alert("Popunite sva polja!");
+        alert("Molimo unesite sva polja!");
         return;
     }
 
     try {
-        await Login(user, pass, addr);
+        // Pozivamo Go metodu Login iz app.go
+        const rezultat = await Login(user, pass, addr);
         trenutniKorisnik = user;
         
-        document.getElementById("chat-title").innerText = `Korisnik: ${trenutniKorisnik}`;
+        // Promeni naslov četa da piše ko je ulogovan
+        document.getElementById("chat-title").innerText = `Ulogovan kao: ${trenutniKorisnik}`;
+
+        // Sakrij login formu, prikaži čet prozor
         document.getElementById("login-container").style.display = "none";
-        document.getElementById("chat-container").style.display = "block";
+        document.getElementById("chat-container").style.display = "flex";
     } catch (err) {
-        alert("Greška: " + err);
+        alert("Greška pri prijavi: " + err);
     }
 }
 
-// Funkcija za slanje poruke
 window.posaljiPoruku = async function() {
     const input = document.getElementById("message-input");
     const tekst = input.value.trim();
@@ -43,42 +45,62 @@ window.posaljiPoruku = async function() {
     if (tekst === "") return;
 
     try {
+        // Pozivamo Go metodu SendMessage iz app.go
         await SendMessage(tekst);
         
-        // Lokalni prikaz poslate poruke
+        // Ako je poruka bila namenjena nekom drugom (@Korisnik), prikazaćemo je odmah i kod nas lokalno
         if (tekst.startsWith("@")) {
-            prikažiPorukuUEkranu(`[Ti -> ${tekst.split(' ')[0].substring(1)}]: ${tekst.substring(tekst.indexOf(' ') + 1)}`, true);
+            prikažiPorukuUEkranu(`[Ti -> ${tekst.split(' ')[0].substring(1)}]: ${tekst.substring(tekst.indexOf(' ') + 1)}`);
         } else {
-            prikažiPorukuUEkranu(`[Ti]: ${tekst}`, true);
+            prikažiPorukuUEkranu(`[Ti]: ${tekst}`);
         }
         
-        input.value = "";
+        input.value = ""; // Praznimo polje nakon uspešnog slanja
     } catch (err) {
         alert("Greška pri slanju: " + err);
     }
 }
 
-// Pomoćna funkcija za ispis na ekranu
-function prikažiPorukuUEkranu(tekst, daLiSamJaPoslao = false) {
-    const prozorSaPorukama = document.getElementById("chat-messages"); // ISPRAVLJENO OVDE
-    const divPoruka = document.createElement("div");
+// Pomoćna funkcija za ubacivanje oblačića u čet prozor
+function prikažiPorukuUEkranu(tekst) {
+    const mrezaPoruka = document.getElementById("chat-messages");
     
-    // Dodajemo osnovnu klasu za poruku
-    divPoruka.className = "msg";
-    divPoruka.innerText = tekst;
+    const oblačić = document.createElement("div");
+    oblačić.className = "msg-bubble";
+    oblačić.innerText = tekst;
     
-    // Ako je poruka naša (ili počinje sa [Ti]), dodajemo klasu koja je boji u plavo i gura desno
-    if (daLiSamJaPoslao || tekst.startsWith("[Ti]")) {
-        divPoruka.classList.add("moja-poruka");
+    // Ako poruka počinje sa "[Ti", pomeri oblačić desno i promeni mu boju u svetlozelenu (kao na WhatsApp-u)
+    if (tekst.startsWith("[Ti]")) {
+        oblačić.style.alignSelf = "flex-end";
+        oblačić.style.backgroundColor = "#d9fdd3";
+    } else if (tekst.startsWith("[Ti ->")) {
+        oblačić.style.alignSelf = "flex-end";
+        oblačić.style.backgroundColor = "#e8cbf5"; // Drugačija boja za DM koji ti šalješ
     }
     
-    prozorSaPorukama.appendChild(divPoruka); // ISPRAVLJENO OVDE
-    prozorSaPorukama.scrollTop = prozorSaPorukama.scrollHeight; // ISPRAVLJENO OVDE
+    mrezaPoruka.appendChild(oblačić);
+    
+    // Automatski skroluj na dno prozora kada stigne nova poruka
+    mrezaPoruka.scrollTop = mrezaPoruka.scrollHeight;
 }
 
-// Slanje na Enter taster
-document.getElementById("message-input")?.addEventListener("keypress", function(e) {
-    if (e.key === "Enter") {
+// Omogućavamo da se poruka pošalje i pritiskom na taster Enter na tastaturi
+document.getElementById("message-input")?.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
         window.posaljiPoruku();
     }
 });
+
+window.toggleSifru = function() {
+    const passwordInput = document.getElementById("password");
+    const toggleButton = document.getElementById("toggle-password");
+
+    if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        toggleButton.innerText = "🔒";
+    } else {
+        passwordInput.type = "password";
+        toggleButton.innerText = "👁️";
+    }
+}

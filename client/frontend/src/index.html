@@ -2,25 +2,33 @@
 <html lang="sr">
 <head>
     <meta charset="UTF-8">
-    <title>Mini WhatsApp - Minimal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini WhatsApp</title>
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
-    <div id="login-container">
-        <h2>Prijava</h2>
+    <div id="login-container" class="center-box">
+        <h2>Mini WhatsApp Prijava</h2>
         <input type="text" id="username" placeholder="Korisničko ime">
-        <input type="password" id="password" placeholder="Lozinka">
-        <input type="text" id="server-addr" value="127.0.0.1:8080">
+        
+        <div class="password-wrapper" style="display: flex; width: 100%; max-width: 300px; margin: 5px auto; position: relative;">
+            <input type="password" id="password" placeholder="Lozinka" style="flex: 1; margin: 0;">
+            <button type="button" id="toggle-password" onclick="toggleSifru()" style="margin-left: 5px; padding: 0 10px; width: auto;">👁️</button>
+        </div>
+        
+        <input type="text" id="server-addr" value="127.0.0.1:8080" placeholder="Adresa servera">
         <button onclick="izvrsiPrijavu()">Uloguj se</button>
     </div>
 
     <div id="chat-container" style="display: none;">
-        <h3 id="chat-title">Čet soba</h3>
+        <div class="chat-header">
+            <h3 id="chat-title">Glavna Soba</h3>
+        </div>
         
-        <div id="chat-messages"></div>
+        <div id="chat-messages" class="message-area"></div>
         
-        <div id="chat-controls">
+        <div class="chat-footer">
             <input type="text" id="message-input" placeholder="Ukucaj poruku...">
             <button onclick="posaljiPoruku()">Pošalji</button>
         </div>
