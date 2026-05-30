@@ -29,6 +29,12 @@ type Server struct {
 	db         *sql.DB 
 }
 
+type ChatMessage struct {
+    Text     string
+    Received bool   // true - for sender, false for receiver
+    Time     string
+}
+
 func NewServer(listenAddr string, db *sql.DB) *Server {
 	return &Server{
 		listenAddr: listenAddr,
@@ -108,6 +114,22 @@ func (s *Server) handleClient(conn net.Conn) {
 		ID:   username,
 		UserID: userID,
 		Conn: conn,
+	}
+
+
+	history, err := s.loadHistory(client.UserID)
+	if err != nil {
+		log.Printf("Failed to load history for %s: %s\n", username, err)
+	} else {
+		conn.Write([]byte("--- Chat History ---\n"))
+		for _, msg := range history {
+			direction := "→"
+			if msg.Received {
+				direction = "←"
+			}
+			conn.Write([]byte(fmt.Sprintf("[%s] %s %s\n", msg.Time, direction, msg.Text)))
+		}
+		conn.Write([]byte("--- End of History ---\n"))
 	}
 
 	s.registerClient(client)
@@ -227,6 +249,30 @@ func (s *Server) broadcastMessage(senderID string, msg string) {
 			}
 		}
 	}
+}
+
+func (s *Server) loadHistory(userID int) ([]ChatMessage, error) {
+    rows, err := s.db.Query(`
+        SELECT messageText, (idSender != ?), time 
+        FROM chat 
+        WHERE idReceiver IS NOT NULL AND (idReceiver = ? OR idSender = ?)
+        ORDER BY time ASC`,
+        userID, userID, userID,
+    )
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var history []ChatMessage
+    for rows.Next() {
+        var msg ChatMessage
+        if err := rows.Scan(&msg.Text, &msg.Received, &msg.Time); err != nil {
+            return nil, err
+        }
+        history = append(history, msg)
+    }
+    return history, nil
 }
 
 func main() {
