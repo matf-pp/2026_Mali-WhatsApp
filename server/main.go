@@ -18,6 +18,7 @@ type Client struct {
 	ID   string
 	UserID int 
 	Conn net.Conn
+	PublicKey string  // new
 }
 
 type Server struct {
@@ -117,6 +118,42 @@ func (s *Server) handleClient(conn net.Conn) {
 	}
 
 
+	s.registerClient(client)
+	defer func() {
+        s.deregisterClient(username)
+        log.Printf("User '%s' logged out.\n", username)
+        s.broadcastSystem(fmt.Sprintf("*** %s has left the chat ***\n", username))
+    }()
+
+	log.Printf("User '%s' (ID: %d) has connected.\n", username, userID)
+    conn.Write([]byte(fmt.Sprintf("Welcome, %s! Format: @receiver msg | broadcast: msg\n", username)))
+    s.broadcastSystem(fmt.Sprintf("*** %s has joined the chat ***\n", username))
+
+
+	message, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	message = strings.TrimSpace(message)
+
+	if strings.HasPrefix(message, "HANDSHAKE:") {
+		client.PublicKey = strings.TrimPrefix(message, "HANDSHAKE:")
+		
+		s.mu.Lock()
+		for id, c := range s.clients {
+			if id != username {
+				// forward our key to the other client
+				c.Conn.Write([]byte(fmt.Sprintf("NJEGOV_KLJUC:%s\n", client.PublicKey)))
+				// if the other client already sent their key, send it back to us
+				if c.PublicKey != "" {
+					conn.Write([]byte(fmt.Sprintf("NJEGOV_KLJUC:%s\n", c.PublicKey)))
+				}
+			}
+		}
+		s.mu.Unlock()
+	}
+
+
 	history, err := s.loadHistory(client.UserID)
 	if err != nil {
 		log.Printf("Failed to load history for %s: %s\n", username, err)
@@ -132,16 +169,6 @@ func (s *Server) handleClient(conn net.Conn) {
 		conn.Write([]byte("--- End of History ---\n"))
 	}
 
-	s.registerClient(client)
-	defer func() {
-        s.deregisterClient(username)
-        log.Printf("User '%s' logged out.\n", username)
-        s.broadcastSystem(fmt.Sprintf("*** %s has left the chat ***\n", username))
-    }()
-
-	log.Printf("User '%s' (ID: %d) has connected.\n", username, userID)
-    conn.Write([]byte(fmt.Sprintf("Welcome, %s! Format: @receiver msg | broadcast: msg\n", username)))
-    s.broadcastSystem(fmt.Sprintf("*** %s has joined the chat ***\n", username))
 
 	for {
 		message, err := reader.ReadString('\n')
