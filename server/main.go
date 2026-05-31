@@ -34,6 +34,7 @@ type ChatMessage struct {
     Text     string
     Received bool   // true - for sender, false for receiver
     Time     string
+	OtherUsername string
 }
 
 func NewServer(listenAddr string, db *sql.DB) *Server {
@@ -143,30 +144,14 @@ func (s *Server) handleClient(conn net.Conn) {
 		for id, c := range s.clients {
 			if id != username {
 				// forward our key to the other client
-				c.Conn.Write([]byte(fmt.Sprintf("NJEGOV_KLJUC:%s\n", client.PublicKey)))
+				c.Conn.Write([]byte(fmt.Sprintf("NJEGOV_KLJUC:%s:%s\n", username, client.PublicKey)))
 				// if the other client already sent their key, send it back to us
 				if c.PublicKey != "" {
-					conn.Write([]byte(fmt.Sprintf("NJEGOV_KLJUC:%s\n", c.PublicKey)))
+    				conn.Write([]byte(fmt.Sprintf("NJEGOV_KLJUC:%s:%s\n", c.ID, c.PublicKey)))
 				}
 			}
 		}
 		s.mu.Unlock()
-	}
-
-
-	history, err := s.loadHistory(client.UserID)
-	if err != nil {
-		log.Printf("Failed to load history for %s: %s\n", username, err)
-	} else {
-		conn.Write([]byte("--- Chat History ---\n"))
-		for _, msg := range history {
-			direction := "→"
-			if msg.Received {
-				direction = "←"
-			}
-			conn.Write([]byte(fmt.Sprintf("[%s] %s %s\n", msg.Time, direction, msg.Text)))
-		}
-		conn.Write([]byte("--- End of History ---\n"))
 	}
 
 
@@ -180,6 +165,11 @@ func (s *Server) handleClient(conn net.Conn) {
 			continue
 		}
 
+		if message == "GET_HISTORY" {
+			s.sendHistory(client)
+			continue
+		}
+
 		if strings.HasPrefix(message, "@") {
 			parts := strings.SplitN(message[1:], " ", 2)
 			if len(parts) < 2 || parts[1] == "" {
@@ -190,8 +180,7 @@ func (s *Server) handleClient(conn net.Conn) {
 				conn.Write([]byte(fmt.Sprintf("Error: %s\n", err)))
 			}
 		} else {
-			s.saveBroadcastMessage(client, message)
-			s.broadcastMessage(username, message)
+		    conn.Write([]byte("Error: broadcast is not supported. Use format: @user message\n"))
 		}
 	}
 }
@@ -230,6 +219,27 @@ func (s *Server) sendDirectMessage(sender *Client, recipientName string, text st
  
 	log.Printf("DM: %s -> %s: %s\n", sender.ID, recipientName, text)
 	return nil
+}
+
+func (s *Server) sendHistory(client *Client) {
+     history, err := s.loadHistory(client.UserID)
+     if err != nil {
+         log.Printf("Failed to load history for %s: %s\n", client.ID, err)
+         client.Conn.Write([]byte("Error: failed to load history\n"))
+         return
+     }
+
+     client.Conn.Write([]byte("--- Chat History ---\n"))
+
+     for _, msg := range history {
+         if msg.Received {
+             client.Conn.Write([]byte(fmt.Sprintf("[HISTORY from %s]: %s\n", msg.OtherUsername, msg.Text)))
+         } else {
+             client.Conn.Write([]byte(fmt.Sprintf("[HISTORY to %s]: %s\n", msg.OtherUsername, msg.Text)))
+         }
+     }
+
+     client.Conn.Write([]byte("--- End of History ---\n"))
 }
 
 func (s *Server) saveBroadcastMessage(sender *Client, msg string) {
@@ -279,27 +289,50 @@ func (s *Server) broadcastMessage(senderID string, msg string) {
 }
 
 func (s *Server) loadHistory(userID int) ([]ChatMessage, error) {
-    rows, err := s.db.Query(`
-        SELECT messageText, (idSender != ?), time 
-        FROM chat 
-        WHERE idReceiver IS NOT NULL AND (idReceiver = ? OR idSender = ?)
-        ORDER BY time ASC`,
-        userID, userID, userID,
+    rows, err := s.db.Query(
+        `SELECT 
+            c.messageText,
+            (c.idSender != ?) AS received,
+            c.time,
+            CASE
+                WHEN c.idSender = ? THEN receiver.username
+                ELSE sender.username
+            END AS otherUsername
+        FROM chat c
+        JOIN users sender ON sender.id = c.idSender
+        JOIN users receiver ON receiver.id = c.idReceiver
+        WHERE c.idReceiver IS NOT NULL
+          AND (c.idReceiver = ? OR c.idSender = ?)
+        ORDER BY c.time ASC`,
+        userID,
+        userID,
+        userID,
+        userID,
     )
+
     if err != nil {
         return nil, err
     }
     defer rows.Close()
 
     var history []ChatMessage
+
     for rows.Next() {
         var msg ChatMessage
-        if err := rows.Scan(&msg.Text, &msg.Received, &msg.Time); err != nil {
+
+        if err := rows.Scan(
+            &msg.Text,
+            &msg.Received,
+            &msg.Time,
+            &msg.OtherUsername,
+        ); err != nil {
             return nil, err
         }
+
         history = append(history, msg)
     }
-    return history, nil
+
+    return history, rows.Err()
 }
 
 func main() {
