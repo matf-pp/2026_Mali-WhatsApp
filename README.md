@@ -1,5 +1,7 @@
 # Mini WhatsApp
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/50d8613871eb46f6a8f67ee791c8b8ba)](https://app.codacy.com/gh/matf-pp/2026_Mali-WhatsApp/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+
 ## Opis
 Implementacija aplikacije za razmenu poruka između korisnika, uz korišćenje 
 enkripcije i dekripcije poruka. Aplikacija koristi Diffie-Hellman razmenu 
