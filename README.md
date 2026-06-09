@@ -1,66 +1,76 @@
 # Mini WhatsApp
 
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/50d8613871eb46f6a8f67ee791c8b8ba)](https://app.codacy.com/gh/matf-pp/2026_Mali-WhatsApp/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+## Description
+A desktop messaging application that enables secure communication between users.
+It uses Diffie-Hellman key exchange and AES-GCM encryption to ensure end-to-end
+encrypted messaging, with message history stored in a local database.
 
-## Opis
-Implementacija aplikacije za razmenu poruka između korisnika, uz korišćenje 
-enkripcije i dekripcije poruka. Aplikacija koristi Diffie-Hellman razmenu 
-ključeva i AES-GCM enkripciju za bezbednu komunikaciju između korisnika.
+## Screenshots
 
-## Jezici i tehnologije
-- **Go** — server i klijentska logika
+### Login
+![Login](screenshots/login_screen.png)
+
+### Live Chat
+![Chat History](screenshots/chat_screen.png)
+
+### Chat History
+![Live Chat](screenshots/chat_history.png)
+
+## Languages and Technologies
+- **Go** — server and client logic
 - **Wails** — desktop GUI framework
-- **SQLite3** — baza podataka za čuvanje poruka i korisnika
+- **SQLite3** — database for storing messages and users
 
-## Potrebno za pokretanje
+## Requirements
 - Go 1.21+
 - Wails (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
 - SQLite3
 
-## Prevođenje i pokretanje
+## Building and Running
 
-### Razvojno okruženje
+### Development
 ```bash
 # Server
 cd server
 go run main.go
 
-# Klijent
+# Client
 cd client
 wails dev
 ```
 
-### Izvršni fajlovi
+### Executable Files
 ```bash
 # Server
 cd server
 go build -o server main.go
 ./server
 
-# Klijent
+# Client
 cd client
 wails build
 ./build/bin/mini-whatsapp
 ```
 
-### Inicijalizacija baze
+### Database Initialization
 ```bash
-    #Iz korenog direktorijuma pokrenuti:
-    make
+# From the root directory:
+make
 ```
 
-## Operativni sistem
-Izvršni fajlovi su napravljeni za **Linux (x86_64)**, testirano na Ubuntu 24.04.
+## Operating System
+Executable files are built for **Linux (x86_64)**, tested on Ubuntu 24.04.
 
-## Autori
-| Ime | Email |
+
+## Authors
+| Name | Email |
 |-----|-------|
 | Nikolaj Molčanov | mi23239@alas.matf.bg.ac.rs |
 | Stefan Gajić | mi23056@alas.matf.bg.ac.rs |
 | Dušan Marić | mi23065@alas.matf.bg.ac.rs |
 
-## Napomene
-- Server se pokreće pre klijenta
-- Istorija poruka će biti vidljiva tek nakon što oba korisnika urade login
-- Podrazumevani korisnici: `Alice`/`tajna456` i `Bob`/`sifra123`
-- Server sluša na portu `8080`
+## Notes
+- Server must be started before the client
+- Chat history will be visible only after both users have logged in
+- Default credentials: `Alice`/`tajna456` and `Bob`/`sifra123`
+- Server listens on port `8080`
